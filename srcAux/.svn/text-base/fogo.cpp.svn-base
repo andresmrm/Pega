@@ -1,0 +1,774 @@
+//-----------------------------------------------------------------------------
+// Copyright 2008 Andrés M. R. Martano
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>
+//-----------------------------------------------------------------------------
+
+#include "fogo.h"
+#include "SDL/SDL.h"
+#include "listaC.h"
+#include "ModelType.h"
+#include <FTGL/FTGL.h>
+#include <FTGL/FTGLPixmapFont.h>
+//#include <FTGL/ftgl.h>
+
+SDL_Surface *FOGO_TELA = NULL;
+int FOGO_COMPRIMENTO_TELA = 800.0;
+int FOGO_ALTURA_TELA = 600.0;
+int FOGO_CORES_TELA = 32;
+int FOGO_TELA_CHEIA = 0;
+int FOGO_FLAGS_VIDEO = 0;
+int FOGO_FRAMES_SEGUNDO = 30;
+int FOGO_NEBLINA = 0;
+string FOGO_NOME_JANELA = "Janela desnomeada!";
+string FOGO_MINI_NOME_JANELA = "sem nome...";
+bool FOGO_MOSTRAR_MOUSE = true;
+
+#define N_TEXTURAS 20
+#define N_OBJETOS3D 20
+#define N_FONTES 10
+
+#define FOGO_POSICIONAR_DESENHO glTranslatef( ( pos.x - FOGO_relativo.x ) * TAMANHO, ( pos.y - FOGO_relativo.y ) * TAMANHO, ( pos.z - FOGO_relativo.z ) * TAMANHO ); glRotatef(pos.zr,0.0,0.0,1.0); glRotatef(pos.xr,1.0,0.0,0.0);
+#define FOGO_DESPOSICIONAR_DESENHO FOGO_relativo.mudar(pos.x,pos.y,pos.z); glRotatef(-pos.xr,1.0,0.0,0.0); glRotatef(-pos.zr,0.0,0.0,1.0);
+
+//Câmera
+camera FOGO_CAMERA;
+
+//Lista onde serão colocadas as coisas a serem desenhadas
+tabela FOGO_COISAS;
+
+/* Ambient Light Values ( NEW ) */
+GLfloat LightAmbient[]  = { 0.5f, 0.5f, 0.5f, 1.0f };
+/* Diffuse Light Values ( NEW ) */
+GLfloat LightDiffuse[]  = { 1.0f, 1.0f, 1.0f, 1.0f };
+/* Light Position ( NEW ) */
+GLfloat LightPosition[] = { 0.0f, 0.2f, 1.0f, 0.0f };
+
+GLfloat LightSpecular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+typedef struct													// Create A Structure
+{
+	GLubyte	*imageData;											// Image Data (Up To 32 Bits)
+	GLuint	bpp;												// Image Color Depth In Bits Per Pixel.
+	GLuint	width;												// Image Width
+	GLuint	height;												// Image Height
+	GLuint	texID;												// Texture ID Used To Select A Texture
+} TextureImageTGA;												// Structure Name
+
+
+// Vetor para as texturas carregadas
+TextureImageTGA FOGO_TEXTURAS[N_TEXTURAS];
+
+// Vetor para os objetos 3D carregados
+ModelType FOGO_OBJETOS3D[N_OBJETOS3D];
+
+// Vetor para as fontes carregadas
+FTGLPixmapFont *FOGO_FONTES[N_FONTES];
+
+// cor padrao para o fundo
+GLfloat FOGO_COR_FUNDO[4] = {0.3f, 0.50f, 1.0f, 1.0f};
+
+// cor da neblina
+GLfloat FOGO_COR_NEBLINA[4]= {0.8f, 0.8f, 0.85f, 1.0f};
+//                    {0.65f, 0.65f, 0.65f, 1.0f}; cinza
+
+posicao FOGO_relativo;
+
+void FOGO_alterar_nome_janela(string nome)
+{
+	FOGO_NOME_JANELA = nome;
+	SDL_WM_SetCaption(FOGO_NOME_JANELA.c_str(),FOGO_MINI_NOME_JANELA.c_str());
+}
+
+void FOGO_alterar_mini_nome_janela(string nome)
+{
+	FOGO_MINI_NOME_JANELA = nome;
+	SDL_WM_SetCaption(FOGO_NOME_JANELA.c_str(),FOGO_MINI_NOME_JANELA.c_str());
+}
+
+void ajustar_neblina()
+{
+	if( FOGO_NEBLINA )
+	{
+		glClearColor(FOGO_COR_NEBLINA[0],FOGO_COR_NEBLINA[1],FOGO_COR_NEBLINA[2],FOGO_COR_NEBLINA[3]);
+		//Tipos de neblina: GL_EXP, GL_EXP2, GL_LINEAR
+		glFogi(GL_FOG_MODE, GL_EXP);		        // Fog Mode
+		glFogfv(GL_FOG_COLOR, FOGO_COR_NEBLINA);			// Set Fog Color
+		glFogf(GL_FOG_DENSITY, 0.020f/TAMANHO);		// How Dense Will The Fog Be
+		glHint(GL_FOG_HINT, GL_NICEST);		    	// Fog Hint Value
+		glFogf(GL_FOG_START, 5.0f);			    	// Fog Start Depth
+		glFogf(GL_FOG_END, 200.0f);			    	// Fog End Depth
+		glEnable(GL_FOG);				        	// Enables GL_FOG
+	}
+	else
+	{
+		glClearColor( FOGO_COR_FUNDO[0], FOGO_COR_FUNDO[1], FOGO_COR_FUNDO[2], FOGO_COR_FUNDO[3] );
+		glDisable(GL_FOG);				        	// Enables GL_FOG
+	}
+}
+
+void FOGO_alternar_neblina()
+{
+    FOGO_NEBLINA = !FOGO_NEBLINA;
+    ajustar_neblina();
+}
+
+void FOGO_ativar_neblina()
+{
+    FOGO_NEBLINA = true;
+    ajustar_neblina();
+}
+
+void FOGO_desativar_neblina()
+{
+    FOGO_NEBLINA = false;
+    ajustar_neblina();
+}
+
+void FOGO_esconder_mouse()
+{
+	SDL_ShowCursor(SDL_DISABLE);
+	FOGO_MOSTRAR_MOUSE = false;
+}
+
+void FOGO_alternar_tela_cheia()
+{
+    FOGO_TELA_CHEIA = !FOGO_TELA_CHEIA;
+    SDL_WM_ToggleFullScreen( FOGO_TELA );
+
+    if( !FOGO_MOSTRAR_MOUSE )
+    {
+    	SDL_ShowCursor(SDL_ENABLE);
+    	SDL_ShowCursor(SDL_DISABLE);
+    }
+}
+
+void FOGO_alterar_cor_neblina(float r, float g, float b)
+{
+	FOGO_COR_NEBLINA[0] = r;
+	FOGO_COR_NEBLINA[1] = g;
+	FOGO_COR_NEBLINA[2] = b;
+	ajustar_neblina();
+}
+
+void FOGO_alterar_cor_fundo(float r, float g, float b)
+{
+	FOGO_COR_FUNDO[0] = r;
+	FOGO_COR_FUNDO[1] = g;
+	FOGO_COR_FUNDO[2] = b;
+	ajustar_neblina();
+}
+
+void FOGO_alterar_fps(int fps)
+{
+    FOGO_FRAMES_SEGUNDO = fps;
+}
+
+/*
+ * Esse "LoadTGA" não é meu... achar copyright!
+ */
+int LoadTGA(TextureImageTGA *texture, char *filename, int mip_map)				// Loads A TGA File Into Memory
+{
+//    mip_map = 1;
+
+	GLubyte		TGAheader[12]={0,0,2,0,0,0,0,0,0,0,0,0};		// Uncompressed TGA Header
+	GLubyte		TGAcompare[12];									// Used To Compare TGA Header
+	GLubyte		header[6];										// First 6 Useful Bytes From The Header
+	GLuint		bytesPerPixel;									// Holds Number Of Bytes Per Pixel Used In The TGA File
+	GLuint		imageSize;										// Used To Store The Image Size When Setting Aside Ram
+	GLuint		temp;											// Temporary Variable
+	GLuint		type=GL_RGBA;									// Set The Default GL Mode To RBGA (32 BPP)
+
+	FILE *file = fopen(filename, "rb");							// Open The TGA File
+
+	if(	file==NULL ||											// Does File Even Exist?
+		fread(TGAcompare,1,sizeof(TGAcompare),file)!=sizeof(TGAcompare) ||	// Are There 12 Bytes To Read?
+		memcmp(TGAheader,TGAcompare,sizeof(TGAheader))!=0				||	// Does The Header Match What We Want?
+		fread(header,1,sizeof(header),file)!=sizeof(header))				// If So Read Next 6 Header Bytes
+		{
+			if (file != NULL) fclose(file);									// If Anything Failed, Close The File
+
+			return 0;													// Return False
+		}
+
+		texture->width  = header[1] * 256 + header[0];					// Determine The TGA Width	(highbyte*256+lowbyte)
+		texture->height = header[3] * 256 + header[2];					// Determine The TGA Height	(highbyte*256+lowbyte)
+
+		if( texture->width <= 0 || texture->height <= 0 || (header[4]!=24 && header[4]!=32) )
+		{
+			fclose(file);												// If Anything Failed, Close The File
+			return 0;													// Return False
+		}
+
+		texture->bpp = header[4];										// Grab The TGA's Bits Per Pixel (24 or 32)
+		bytesPerPixel = texture->bpp/8;									// Divide By 8 To Get The Bytes Per Pixel
+		imageSize = texture->width*texture->height*bytesPerPixel;		// Calculate The Memory Required For The TGA Data
+
+		texture->imageData = (GLubyte *)malloc(imageSize);				// Reserve Memory To Hold The TGA Data
+
+		if( texture->imageData==NULL || fread(texture->imageData, 1, imageSize, file)!=imageSize) // Does The Image Size Match The Memory Reserved?
+		{
+			if(texture->imageData!=NULL)								// Was Image Data Loaded
+			{
+				free(texture->imageData);								// If So, Release The Image Data
+				texture->imageData = NULL;
+			}
+
+			fclose(file);												// Close The File
+			return 0;													// Return False
+		}
+
+		for(GLuint i=0; i<(unsigned int)imageSize; i+=bytesPerPixel)	// Loop Through The Image Data
+		{																// Swaps The 1st And 3rd Bytes ('R'ed and 'B'lue)
+			temp=texture->imageData[i];									// Temporarily Store The Value At Image Data 'i'
+			texture->imageData[i] = texture->imageData[i + 2];			// Set The 1st Byte To The Value Of The 3rd Byte
+			texture->imageData[i + 2] = temp;							// Set The 3rd Byte To The Value In 'temp' (1st Byte Value)
+		}
+
+		fclose (file);													// Close The File
+
+		// Build A Texture From The Data
+		glGenTextures(1, &texture[0].texID);							// Generate OpenGL texture IDs
+
+		glBindTexture(GL_TEXTURE_2D, texture[0].texID);					// Bind Our Texture
+
+		//Tipos: GL_NEAREST, GL_LINEAR, GL_LINEAR_MIPMAP_NEAREST
+		if(mip_map)glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+		else glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		if(mip_map)glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+        else glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		if (texture[0].bpp==24)											// Was The TGA 24 Bits
+		{
+			type=GL_RGB;												// If So Set The 'type' To GL_RGB
+		}
+
+		if(mip_map)gluBuild2DMipmaps(GL_TEXTURE_2D, 3, texture[0].width, texture[0].height, type, GL_UNSIGNED_BYTE, texture[0].imageData); // CONSTROE BITMAPS
+        else glTexImage2D(GL_TEXTURE_2D, 0, type, texture[0].width, texture[0].height, 0, type, GL_UNSIGNED_BYTE, texture[0].imageData);
+
+
+		return 1;														// Texture Building Went Ok, Return True
+}
+
+/* function to reset our viewport after a window resize */
+void redimensionar_janela( int comprimento, int altura )
+{
+	/* Height / width ration */
+	GLfloat razao;
+
+	/* Protect against a divide by zero */
+	if ( altura == 0 )
+	altura = 1;
+
+	razao = ( GLfloat )comprimento / ( GLfloat )altura;
+
+	/* Setup our viewport. */
+	glViewport( 0, 0, ( GLint )comprimento, ( GLint )altura );
+
+	/* change to the projection matrix and set our viewing volume. */
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity( );
+
+	/* Set our perspective */
+	gluPerspective( 45.0f, razao, 0.1f, 100000.0f );
+
+	/* Make sure we're chaning the model view and not the projection */
+	glMatrixMode( GL_MODELVIEW );
+
+	/* Reset The View */
+	glLoadIdentity( );
+
+	// Ajusta para tela cheia
+	if( FOGO_TELA_CHEIA )
+			SDL_WM_ToggleFullScreen( FOGO_TELA );
+}
+
+void FOGO_resolucao(int comprimento, int altura) {
+    FOGO_COMPRIMENTO_TELA = comprimento;
+    FOGO_ALTURA_TELA = altura;
+    FOGO_TELA = SDL_SetVideoMode( FOGO_COMPRIMENTO_TELA, FOGO_ALTURA_TELA, FOGO_CORES_TELA, FOGO_FLAGS_VIDEO );
+    redimensionar_janela( FOGO_COMPRIMENTO_TELA, FOGO_ALTURA_TELA );
+}
+
+void desenhar_quadrado( int textura, float tama )
+{
+	glBindTexture( GL_TEXTURE_2D, FOGO_TEXTURAS[textura].texID );
+	glBegin( GL_QUADS );
+	glNormal3f( 0.0f, 0.0f, 1.0f );
+	//XX
+	//OX
+	glTexCoord2f( 0.0f, 0.0f ); glVertex3f( -0.5f*tama*TAMANHO, -0.5f*tama*TAMANHO, 0.0f );
+	//XX
+	//XO
+	glTexCoord2f( 1.0f, 0.0f ); glVertex3f( 0.5f*tama*TAMANHO, -0.5f*tama*TAMANHO, 0.0f );
+	//XO
+	//XX
+	glTexCoord2f( 1.0f, 1.0f ); glVertex3f( 0.5f*tama*TAMANHO, 0.5f*tama*TAMANHO, 0.0f );
+	//OX
+	//XX
+	glTexCoord2f( 0.0f, 1.0f ); glVertex3f( -0.5f*tama*TAMANHO, 0.5f*tama*TAMANHO, 0.0f );
+	glEnd( );
+}
+
+void FOGO_desenhar_2D( int textura, float x, float y, float comprimento, float altura )
+{
+	float tama = FOGO_COMPRIMENTO_TELA/100.0/1.208;
+	x -= 50;
+	y -= 50;
+
+//	glMatrixMode (GL_PROJECTION);
+	glLoadIdentity();
+	glTranslatef(0.0f,0.0f,0.0f);
+
+	glOrtho( -FOGO_ALTURA_TELA/tama, FOGO_ALTURA_TELA/tama, -FOGO_COMPRIMENTO_TELA/tama, FOGO_COMPRIMENTO_TELA/tama, 0, 1);
+//	glMatrixMode (GL_MODELVIEW);
+	glDisable(GL_DEPTH_TEST);
+
+	glBindTexture( GL_TEXTURE_2D, FOGO_TEXTURAS[textura].texID );
+	glBegin( GL_QUADS );
+	//OX
+	//XX
+	glTexCoord2f( 0.0f, 1.0f ); glVertex2f( x, y );
+	//XO
+	//XX
+	glTexCoord2f( 1.0f, 1.0f ); glVertex2f( x+comprimento, y );
+	//XX
+	//XO
+	glTexCoord2f( 1.0f, 0.0f ); glVertex2f( x+comprimento, y+altura );
+	//XX
+	//OX
+	glTexCoord2f( 0.0f, 0.0f ); glVertex2f( x, y+altura );
+	glEnd( );
+
+	glEnable( GL_DEPTH_TEST );
+}
+
+//Escrever texto
+void FOGO_escrever( float x, float y, string texto, int num, float r, float g, float b )
+{
+    if( r != 1.0 || g != 1.0 || b != 1.0 )glColor3f( r, g, b);
+
+    glLoadIdentity();
+
+    glTranslatef(0,0,-0.1);
+//    glRasterPos2f(x*0.000000687*800+0.002, y*0.00041-0.0004);
+//    glRasterPos2f(x*0.0005497*, y*0.000414);
+//    glRasterPos2f(x*0.0005205, y*0.000414);
+//    cout << "\n" << 0.0622933/float(FOGO_COMPRIMENTO_TELA)+0.0004718 << "\n";
+    glRasterPos2f(x*(0.0622933/float(FOGO_COMPRIMENTO_TELA)+0.0004718), y*0.000414);
+
+    if( FOGO_FONTES[num] != NULL)
+    	(*FOGO_FONTES[num]).Render(texto.c_str());
+
+
+    if( r != 1.0 || g != 1.0 || b != 1.0 )glColor3f( 1.0f, 1.0f, 1.0f);
+}
+
+void controlar_fps()
+{
+	static Uint32 tempo = 0;
+
+	if( FOGO_FRAMES_SEGUNDO > 0 )
+	{
+		tempo = SDL_GetTicks() - tempo;
+
+
+//		static char texto[100];
+//		sprintf(texto,"Fps: %d - Tempo: %d", 1000/tempo, tempo);
+//		FOGO_escrever( -300, -300, texto, 0 );
+
+
+		if( (int)(tempo) < 1000 / FOGO_FRAMES_SEGUNDO )
+		{
+			SDL_Delay( ( 1000 / FOGO_FRAMES_SEGUNDO ) - tempo );
+		}
+
+//		static Uint32 tempo2 = 0;
+//		tempo2 = SDL_GetTicks() - tempo2;
+//		sprintf(texto,"Fps: %d - Tempo: %d", 1000/tempo2, tempo2);
+//		FOGO_escrever( -300, -350, texto, 0 );
+//		tempo2 = SDL_GetTicks();
+
+		tempo = SDL_GetTicks();
+	}
+}
+
+// Carrega uma textura e coloca no vetor de texturas
+int FOGO_carregar_textura( const char *nome, int mip_map, int pos )
+{
+	if ( !LoadTGA( &FOGO_TEXTURAS[pos], (char*)nome, mip_map ) )
+        return 0;
+    else
+        return 1;
+}
+
+// Carrega uma fonte e coloca no vetor de fontes
+int FOGO_carregar_fonte( const char *nome, int tamanho, int pos )
+{
+    FOGO_FONTES[pos] = new FTGLPixmapFont(nome);
+
+    if( !FOGO_FONTES[pos]->Error() )
+    {
+    	cout << "Fonte carregada: " << nome << "\n";
+        (*FOGO_FONTES[pos]).FaceSize(tamanho);
+        return 1;
+    }
+    else
+    {
+    	FOGO_FONTES[pos] = NULL;
+    	cout << "Erro ao tentar abrir fonte: " << nome << "\n";
+        return 0;
+    }
+}
+
+// Carrega um objeto 3D e coloca no vetor de objetos 3D
+int FOGO_carregar_objeto3D( const char *nome, float escala, int pos )
+{
+    return FOGO_OBJETOS3D[pos].LoadObj((char*)nome, escala);
+}
+
+int iniciar_GL()
+{
+	/* Enable Texture Mapping ( NEW ) */
+	glEnable( GL_TEXTURE_2D );
+	/* Enable smooth shading */
+	glShadeModel( GL_SMOOTH );
+	/* Set the background black */
+	//glClearColor( 0.0f, 0.0f, 0.25f, 0.0f ); //Azul escuro
+//	glClearColor( 0.5f, 0.70f, 1.0f, 0.0f );
+	/* Depth buffer setup */
+	glClearDepth( 1.0f );
+
+    glEnable(GL_NORMALIZE);
+    glEnable(GL_LIGHTING);
+    glEnable(GL_COLOR_MATERIAL);
+    glEnable(GL_LIGHT0);
+    glMatrixMode(GL_PROJECTION);
+
+	/* Enables Depth Testing */
+	glEnable( GL_DEPTH_TEST );
+	/* The Type Of Depth Test To Do */
+	glDepthFunc( GL_LEQUAL );
+	/* Really Nice Perspective Calculations */
+	glHint( GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST );
+
+
+ 	/* Setup The Ambient Light */
+ 	glLightfv( GL_LIGHT0, GL_AMBIENT, LightAmbient );
+ 	/* Setup The Diffuse Light */
+ 	glLightfv( GL_LIGHT0, GL_DIFFUSE, LightDiffuse );
+ 	/* Position The Light */
+ 	glLightfv( GL_LIGHT0, GL_POSITION, LightPosition );
+
+ 	glLightfv(GL_LIGHT0, GL_SPECULAR, LightSpecular );
+ 	/* Enable Light One */
+ 	glEnable( GL_LIGHT0 );
+
+ 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);		// Enable Alpha Blending (disable alpha testing)
+ 	glEnable(GL_BLEND);										// Enable Blending       (disable alpha testing)
+
+
+//    glAlphaFunc(GL_GREATER,0.1f);							// Set Alpha Testing     (disable blending)
+//    glEnable(GL_ALPHA_TEST);								// Enable Alpha Testing  (disable blending)
+
+
+
+ 	glEnable(GL_CULL_FACE);									// Remove Back Face
+
+    ajustar_neblina();
+
+//    FOGO_carregar_fonte("fontes/CRYSRG__.TTF",10,0);
+
+    useLights = false;
+    useSmooth = true;
+
+	return 1;
+}
+
+char iniciar_SDL_fogo()
+{
+	/* this holds some info about our display */
+	const SDL_VideoInfo *videoInfo;
+	/* whether or not the window is active */
+	//int isActive = 1;
+
+	/* initialize SDL */
+	if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_TIMER ) < 0 )
+	{
+		fprintf( stderr, "Video initialization failed: %s\n",SDL_GetError( ) );
+		return 1;
+	}
+
+	/* Fetch the video info */
+	videoInfo = SDL_GetVideoInfo( );
+
+	if ( !videoInfo )
+	{
+		fprintf( stderr, "Video query failed: %s\n", SDL_GetError( ) );
+		return 1;
+	}
+
+	/* the flags to pass to SDL_SetVideoMode */
+	FOGO_FLAGS_VIDEO  = SDL_OPENGL;          /* Enable OpenGL in SDL */
+	FOGO_FLAGS_VIDEO |= SDL_GL_DOUBLEBUFFER; /* Enable double buffering */
+	FOGO_FLAGS_VIDEO |= SDL_HWPALETTE;       /* Store the palette in hardware */
+	FOGO_FLAGS_VIDEO |= SDL_RESIZABLE;       /* Enable window resizing */
+
+	/* This checks to see if surfaces can be stored in memory */
+	if ( videoInfo->hw_available )
+		FOGO_FLAGS_VIDEO |= SDL_HWSURFACE;
+	else
+		FOGO_FLAGS_VIDEO |= SDL_SWSURFACE;
+
+	/* This checks if hardware blits can be done */
+	if ( videoInfo->blit_hw ) FOGO_FLAGS_VIDEO |= SDL_HWACCEL;
+
+	/* Sets up OpenGL double buffering */
+	SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
+
+	/* get a SDL surface */
+	FOGO_TELA = SDL_SetVideoMode( FOGO_COMPRIMENTO_TELA, FOGO_ALTURA_TELA, FOGO_CORES_TELA, FOGO_FLAGS_VIDEO );
+
+	/* Verify there is a surface */
+	if ( !FOGO_TELA )
+	{
+		fprintf( stderr, "Video mode set failed: %s\n", SDL_GetError( ) );
+		return 0;
+	}
+
+	/* initialize OpenGL */
+	iniciar_GL();
+
+	redimensionar_janela( FOGO_COMPRIMENTO_TELA, FOGO_ALTURA_TELA );
+
+	return 1;
+}
+//-----------------------------------------------------------------------------
+
+//Limpa o buffer
+void FOGO_desenhar_listas_inicio()
+{
+	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+	FOGO_relativo.mudar(0,0,0);
+
+	glLoadIdentity();
+
+//	gluLookAt( 0, 0, 0, 1, 0, 0, 0, 0, 1 );
+
+//	GLfloat white[] = {0.8f, 0.8f, 0.8f, 1.0f};
+//	GLfloat cyan[] = {0.f, .8f, .8f, 1.f};
+//	glMaterialfv(GL_FRONT, GL_DIFFUSE, cyan);
+//	glMaterialfv(GL_FRONT, GL_SPECULAR, white);
+//	GLfloat shininess[] = {50};
+//	glMaterialfv(GL_FRONT, GL_SHININESS, shininess);
+
+
+	/* Setup The Ambient Light */
+	glLightfv( GL_LIGHT0, GL_AMBIENT, LightAmbient );
+	/* Setup The Diffuse Light */
+	glLightfv( GL_LIGHT0, GL_DIFFUSE, LightDiffuse );
+	/* Position The Light */
+	glLightfv( GL_LIGHT0, GL_POSITION, LightPosition );
+
+	glLightfv(GL_LIGHT0, GL_SPECULAR, LightSpecular );
+
+
+
+	FOGO_CAMERA.posicionar2();
+	FOGO_CAMERA.posicionar();
+}
+//-----------------------------------------------------------------------------
+
+//Desenha todas as coisas na tela
+char FOGO_desenhar_lista( int coluna, float x, float y, float z )
+{
+	void *lin = NULL;
+	void *objeto;
+
+	glTranslatef( x * TAMANHO, y * TAMANHO, z * TAMANHO );
+
+	do
+	{
+		objeto = retornar_objeto( &FOGO_COISAS, coluna, &lin );
+		if(objeto != NULL)
+		{
+			((coisa*)objeto)->desenhar();
+		}
+	}
+	while( lin != NULL );
+
+	glTranslatef( -x * TAMANHO, -y * TAMANHO, -z * TAMANHO );
+
+	return 1;
+}
+//-----------------------------------------------------------------------------
+
+//Desenha todas as coisas na tela
+char FOGO_desenhar_lista( int coluna )
+{
+	void *lin = NULL;
+	void *objeto;
+
+	do
+	{
+		objeto = retornar_objeto( &FOGO_COISAS, coluna, &lin );
+		if(objeto != NULL)
+		{
+			((coisa*)objeto)->desenhar();
+		}
+	}
+	while( lin != NULL );
+
+	return 1;
+}
+//-----------------------------------------------------------------------------
+
+//Troca o buffer
+char FOGO_desenhar_listas_fim()
+{
+	controlar_fps();
+
+    SDL_GL_SwapBuffers( );
+
+    return 1;
+}
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+//Objetos a serem colocados na lista de desenho
+//-----------------------------------------------------------------------------
+//Coisa - objeto base
+coisa::coisa( int coluna )
+{
+	inserir_linha(&FOGO_COISAS, coluna, sizeof(this), this);
+	this->coluna = coluna;
+}
+coisa::~coisa()
+{
+	remover_linha(&FOGO_COISAS, coluna, this);
+}
+
+//Um plano 2D
+casca::casca( posicao pos2, float tama, int dese, int coluna ) : coisa(coluna)
+{
+	this->pos.igualar(pos2);
+	this->tamanho = tama;
+	this->desenho = dese;
+}
+
+casca::casca( posicao pos2, int coluna ) : coisa(coluna)
+{
+	this->pos.igualar(pos2);
+	this->tamanho = 1;
+	this->desenho = 0;
+}
+
+void casca::desenhar(void)
+{
+//	if(FOGO_CAMERA.pos.x > this->pos.x)
+	{
+		FOGO_POSICIONAR_DESENHO
+		desenhar_quadrado( desenho, tamanho );
+		FOGO_DESPOSICIONAR_DESENHO
+	}
+}
+
+//Um plano 2D
+plano::plano( posicao pos2, float tama, int dese, int coluna ) : coisa(coluna)
+{
+	this->pos.igualar(pos2);
+	this->tamanho = tama;
+	this->desenho = dese;
+}
+
+plano::plano( posicao pos2, int coluna ) : coisa(coluna)
+{
+	this->pos.igualar(pos2);
+	this->tamanho = 1;
+	this->desenho = 0;
+}
+
+void plano::desenhar(void)
+{
+//	if(FOGO_CAMERA.pos.x > this->pos.x)
+	{
+		FOGO_POSICIONAR_DESENHO
+		desenhar_quadrado( desenho, tamanho );
+		glRotatef(180, 0.0, 1.0, 0.0);
+		desenhar_quadrado( desenho, tamanho );
+		glRotatef(-180, 0.0, 1.0, 0.0);
+		FOGO_DESPOSICIONAR_DESENHO
+	}
+}
+
+//Um objeto3d
+objeto3d::objeto3d( posicao pos2, int obj, int coluna ) : coisa(coluna)
+{
+	this->pos.igualar(pos2);
+	this->objeto = obj;
+}
+
+objeto3d::objeto3d( posicao pos2, int coluna ) : coisa(coluna)
+{
+	this->pos.igualar(pos2);
+	this->objeto = 0;
+}
+
+void objeto3d::desenhar(void)
+{
+//	if(FOGO_CAMERA.pos.x > this->pos.x)
+	{
+		FOGO_POSICIONAR_DESENHO
+		FOGO_OBJETOS3D[this->objeto].Draw();
+		FOGO_DESPOSICIONAR_DESENHO
+	}
+}
+
+//-----------------------------------------------------------------------------
+
+int FOGO_reiniciar_uma_lista_render( int coluna )
+{
+	if( !( deletar_coluna( &FOGO_COISAS, coluna ) ) )return 0;
+	if( !( inserir_coluna( &FOGO_COISAS, coluna ) ) )return 0;
+
+	return 1;
+}
+
+int FOGO_reiniciar_lista_render( int colunas )
+{
+	deletar_tabela(&FOGO_COISAS);
+	if( !( iniciar_tabela( &FOGO_COISAS, colunas ) ) )return 0;
+
+	return 1;
+}
+
+//Carrega a biblioteca
+char FOGO_acender( int colunas )
+{
+	if( !( iniciar_tabela( &FOGO_COISAS, colunas ) ) )return 0;
+	if( !( iniciar_SDL_fogo() ) )return 0;
+	FOGO_CAMERA.iniciar();
+
+	return 1;
+}
+
+//Descarrega a biblioteca
+char FOGO_apagar()
+{
+	SDL_QuitSubSystem( SDL_INIT_VIDEO | SDL_INIT_TIMER );
+	deletar_tabela(&FOGO_COISAS);
+
+	return 1;
+}

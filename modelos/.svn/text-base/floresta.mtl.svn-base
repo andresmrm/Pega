@@ -1,0 +1,22 @@
+# Arquivo MTL gerado com o criador de Mapas do Pega para modelos/floresta.obj
+# Material Count: 3 ou 2
+
+newmtl Material_Chao
+Ns 96.078431
+Ka 0.000000 0.000000 0.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.500000 0.500000 0.500000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd chao4.tga
+
+newmtl Material_Parede
+Ns 96.078431
+Ka 0.000000 0.000000 0.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.500000 0.500000 0.500000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd parede4.tga

@@ -1,0 +1,22 @@
+# Arquivo MTL gerado com o criador de Mapas do Pega para modelos/zigzag.obj
+# Material Count: 3 ou 2
+
+newmtl Material_Chao
+Ns 0.1
+Ka 0.900000 0.900000 0.900000
+Kd 0.750000 0.750000 0.750000
+Ks 0.500000 0.500000 0.500000
+Ni 0.500000
+d 1.000000
+illum 2
+map_Kd cave.tga
+
+newmtl Material_Parede
+Ns 0.1
+Ka 0.900000 0.900000 0.900000
+Kd 0.750000 0.750000 0.750000
+Ks 0.500000 0.500000 0.500000
+Ni 0.500000
+d 1.000000
+illum 2
+map_Kd abanchao.tga

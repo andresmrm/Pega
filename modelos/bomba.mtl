@@ -1,0 +1,13 @@
+# Blender3D MTL File: 
+# Material Count: 1
+newmtl None_integral.tga.001_bomba.tga
+Ns 1.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.0000 0.0000 0.0000
+Ks 1.00000 1.00000 1.00000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd bomba.tga
+
+

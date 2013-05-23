@@ -1,0 +1,13 @@
+# Blender3D MTL File: 
+# Material Count: 1
+newmtl None_cafe.tga_cafe.tga
+Ns 1.000000
+Ka 0.200000 0.200000 0.200000
+Kd 0.60000 0.60000 0.60000
+Ks 1.00000 1.00000 1.00000
+Ni 1.00000
+d 1.00000
+illum 2
+map_Kd cafe.tga
+
+

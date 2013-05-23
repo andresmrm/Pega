@@ -1,0 +1,56 @@
+Arrumar bug q faz pontos do cliente ficarem zuados
+
+Som quando jogador mata algu'em
+
+Som para o virus
+
+Mostrar Numero do Rank no final
+
+Achar criador de um dos loaders de TGA
+
+Colocar acentos nas fontes
+
+Fazer do F1 um botão de ajuda, q mostra uma tela com um manual básico e rápido de ler
+
+Nos créditos colocar o nome de todos de quem usamos coisas (E se possível avisá-los de q usamos)
+
+Melhorar sons
+
+Verificar teclas para q não haja funções não permitidas
+
+
+
+TALVEZ...
+Ver se e luz no jogo está direita e melhorar oq puder
+Avisar a AGUA quando um jogador trocar de nome
+Passar verficadores estáticos de código
+pos2 <- fazer câmera 3rd person direito
+Arrumar quando uma textura/fonte/obj/etc for carregada para ver se já não havia algo no vetor naquela posição e limpar antes de trocar
+fazer renderização Dual Core! (Uma thread para o início da lista de render e outra para o fim)
+Mudar engine para desenhar apenas as coisas necessárias, e não tudo q há no mapa (Ver algoritmo para desenhar apenas aquilo q pode ser visto)
+aprimorar leitor de texto (receber nome usuário)
+deixar um arquivo com os atributos do jogador (como vida, tempos, etc), para carrega-lo quando o jogo abre (assim fica mais fácil customizar)
+verificar vídeo antes de usá-lo para não dar falha de segmentação
+Portar para windows
+Verificar se a água está removendo os jogadores de seu vetor de jogadores quando eles saem
+Deletar modelos 3D quando acabar
+verificar q esteja deletando as listas e fechando as bibliotecas no final do jogo
+corrigir o remover de tabelas, talvez pegando uma a uma das linhas e deletando o obj retornado
+
+
+
+
+
+
+
+AGUA
+Colocar limite de jogadores.
+Verificar se o nome do jogador é válido
+Verificar se o serv/client escolhido é válido
+
+AR
+Colocar uma lista dinâmica para armazenar sons
+Colocar uma lista para músicas
+
+FOGO
+Colocar uma lista dinâmica para texturas, objetos, etc

@@ -1,0 +1,6 @@
+#include <iostream>
+
+int main()
+{
+	cout << system("rank/rankeador.py 'Fri Jan 16 22:55:46 2009\tX\t1 0 0\nFri Jan 16 22:55:46 2009\tZ\t2 0 0\n'");
+}

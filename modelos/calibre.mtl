@@ -1,0 +1,36 @@
+# Arquivo MTL gerado com o criador de Mapas do Pega para modelos/calibre.obj
+# Material Count: 3 ou 2
+
+newmtl Material_Chao
+Ns 96.078431
+Ka 0.000000 0.000000 0.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.500000 0.500000 0.500000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd madeirachao.tga
+map_Ka madeirachao.tga
+map_Ks madeirachao.tga
+
+newmtl Material_Teto
+Ns 96.078431
+Ka 0.000000 0.000000 0.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.500000 0.500000 0.500000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd madeirateto.tga
+map_Ka madeirateto.tga
+map_Ks madeirateto.tga
+
+newmtl Material_Parede
+Ns 0.5
+Ka 0.1 0.1 0.1
+Kd 0.5 0.5 0.5
+Ks 1.0 1.0 1.0
+d 1.0
+illum 2
+map_Kd madeiraparede.tga
+map_Ks madeiraparede.tga

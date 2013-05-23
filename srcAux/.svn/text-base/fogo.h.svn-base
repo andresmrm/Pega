@@ -1,0 +1,213 @@
+//-----------------------------------------------------------------------------
+// Copyright 2008 Andrés M. R. Martano
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>
+//-----------------------------------------------------------------------------
+
+#ifndef FOGO_H_
+#define FOGO_H_
+
+#include <GL/gl.h>
+#include <GL/glu.h>
+#include <math.h>
+#include <iostream>
+#include "posicao.h"
+using namespace std;
+
+#define TAMANHO 1 //Multiplica o tamanho geral das coisas
+
+//A CÂMERA
+typedef struct{
+		posicao pos;
+		posicao pos2;
+		float vel_mov;
+		float vel_rot;
+
+		void iniciar()
+		{
+			pos.mudar( 0*TAMANHO , 0*TAMANHO, 5*TAMANHO );
+			pos.mudar_r( 0, 0 );
+
+			pos2.mudar( 0*TAMANHO , 0*TAMANHO, 0*TAMANHO );
+			pos2.mudar_r( 0, 90 );
+
+			vel_mov = 2;
+			vel_rot = 10;
+		}
+		void imprimir()
+		{
+			cout << "POS1 : (" << pos.x << "," << pos.y << "," << pos.z << ";" << pos.xr << "," << pos.zr << ")\n";
+			cout << "POS2 : (" << pos2.x << "," << pos2.y << "," << pos2.z << ";" << pos2.xr << "," << pos2.zr << ")\n";
+		}
+		void rodar( float x, float z )
+		{
+			pos.rodar( x*vel_rot, z*vel_rot );
+		}
+		void mover( float x, float y, float z )
+		{
+			pos.adicionar( x*vel_mov*cos(0.01745*pos.zr)+y*vel_mov*sin(0.01745*pos.zr), y*vel_mov*cos(0.01745*pos.zr)-x*vel_mov*sin(0.01745*pos.zr), z*vel_mov );
+		}
+		void posicionar()
+		{
+			glRotatef(-pos.xr-90,1.0,0.0,0.0);
+			glRotatef(pos.zr,0.0,0.0,1.0);
+			glTranslatef(-pos.x,-pos.y,-pos.z);
+		}
+		void posicionar2()
+		{
+            glRotatef(pos2.xr,1.0,0.0,0.0);
+			glRotatef(-pos2.zr,0.0,1.0,0.0);
+			glTranslatef(-pos2.x,-pos2.y,-pos2.z);
+
+            glRotatef(90,0.0,1.0,0.0);
+		}
+} camera;
+
+//Serve de base para as coisas que tem formato
+class coisa
+{
+	protected:
+		int coluna;
+	public:
+		int desenho;
+		float tamanho;
+		posicao pos;
+
+		coisa( int coluna );
+		~coisa();
+		virtual void desenhar(void) = 0;
+};
+
+//Uma coisa com formato 2D quadrado, visivel so de um lado
+class casca : public coisa
+{
+	public:
+
+		//pos2 - posição em que será criado
+		//tama - tamanho dessa coisa
+		//dese - número de sua textura
+		casca( posicao pos2, float tama, int dese, int coluna );
+		casca( posicao pos2, int coluna );
+
+		void desenhar(void);
+};
+
+//Uma coisa com formato 2D quadrado, visivel dos dois lados
+class plano : public coisa
+{
+	public:
+
+		//pos2 - posição em que será criado
+		//tama - tamanho dessa coisa
+		//dese - número de sua textura
+		plano( posicao pos2, float tama, int dese, int coluna );
+		plano( posicao pos2, int coluna );
+
+		void desenhar(void);
+};
+
+class objeto3d : public coisa
+{
+//    protected:
+//        int objeto;
+
+	public:
+		int objeto;
+
+		//pos2 - posição em que será criado
+		//tama - tamanho dessa coisa
+		//dese - número de sua textura
+		//obj  - número do modelo 3d a ser usado
+		objeto3d( posicao pos2, int obj, int coluna );
+		objeto3d( posicao pos2, int coluna );
+
+		void desenhar(void);
+};
+
+//-----------------------------------------------------------------------------
+//EXTERNS
+//-----------------------------------------------------------------------------
+extern camera FOGO_CAMERA;
+
+//-----------------------------------------------------------------------------
+//PROTÓTIPOS
+//-----------------------------------------------------------------------------
+
+void FOGO_alternar_neblina();
+void FOGO_ativar_neblina();
+void FOGO_desativar_neblina();
+void FOGO_alterar_cor_neblina(float r, float g, float b);
+void FOGO_alterar_cor_fundo(float r, float g, float b);
+
+void FOGO_alterar_nome_janela(string nome);
+void FOGO_alterar_mini_nome_janela(string nome);
+
+void FOGO_alternar_tela_cheia();
+
+// Altera o fps de atualizacao da imagem
+// Coloque 0 ou valor negativo para desativar isso
+void FOGO_alterar_fps(int fps);
+
+
+/*carrega uma textura para ser usada futuramente
+	nome - nome do arquivo da textura
+	pos - posição na lista de texturas ( de 0 a N_TEXTURAS )*/
+int FOGO_carregar_textura( const char nome[20], int mip_map, int pos );
+
+int FOGO_carregar_fonte( const char *nome, int tamanho, int pos );
+
+int FOGO_carregar_objeto3D( const char *nome, float escala, int pos );
+void FOGO_esconder_mouse();
+
+/*ecreve na tela com cor
+	x - posição x na tela
+	y - posição y na tela
+	texto - texto a ser escrito
+	num - número da fonte a ser usada (mesmo número onde a fonte foi carregada)
+	r - vermelho
+	g - verde
+	b - azul*/
+void FOGO_escrever( float x, float y, string texto, int num, float r=1.0, float g=1.0, float b=1.0 );
+
+// Desenha um objeto 2D diretamente na tela
+void FOGO_desenhar_2D( int textura, float x, float y, float comprimento, float altura );
+
+//limpa o buffer
+void FOGO_desenhar_listas_inicio();
+
+//desenha todas as coisas que estão na lista de desenho com offset
+char FOGO_desenhar_lista( int coluna, float x, float y, float z );
+
+//desenha todas as coisas que estão na lista de desenho
+char FOGO_desenhar_lista( int coluna );
+
+//atualiza o buffer
+char FOGO_desenhar_listas_fim();
+
+//reinicia a lsta de renderizacao
+int FOGO_reiniciar_lista_render( int colunas );
+
+//reinicia uma lista e renderizacao
+int FOGO_reiniciar_uma_lista_render( int coluna );
+
+//carrega esta biblioteca
+char FOGO_acender( int colunas );
+
+//descarrega essa biblioteca
+char FOGO_apagar();
+
+//escolhe a resolucao
+void FOGO_resolucao(int comprimento, int altura);
+
+#endif /*FOGO_H_*/
